@@ -57,86 +57,74 @@ namespace PlanetMiner
                 }
                 float miningRate = history.miningCostRate;
                 PlanetTransport transport = __instance.planet.factory.transport;
-                int[] productRegister = null;
                 FactoryProductionStat factoryProductionStat = GameMain.statistics.production.factoryStatPool[__instance.factory.index];
-                productRegister = factoryProductionStat != null ? factoryProductionStat.productRegister : productRegister;
-                for (int j = 1; j < transport.stationCursor; j++)
+                int[] productRegister = factoryProductionStat?.productRegister;
+                foreach (var sc in transport.stationPool)
                 {
-                    StationComponent stationComponent = transport.stationPool[j];
-                    if (stationComponent == null || stationComponent.storage == null) continue;
-                    for (int k = 0; k < stationComponent.storage.Length; k++)
+                    if (sc == null || sc.storage == null) continue;
+                    for (int k = 0; k < sc.storage.Length; k++)
                     {
-                        StationStore stationStore = stationComponent.storage[k];
+                        StationStore stationStore = sc.storage[k];
+                        int itemID = stationStore.itemId;
                         if (stationStore.localLogic == ELogisticStorage.Demand && stationStore.max > stationStore.count)
                         {
-                            if (veins.ContainsKey(stationStore.itemId) || stationStore.itemId == __instance.planet.waterItemId)
+                            if (veins.ContainsKey(itemID) || itemID == __instance.planet.waterItemId)
                             {
                                 //当能量不足一半时
-                                if (stationComponent.energyMax / 2 > stationComponent.energy)
+                                if (sc.energyMax / 2 > sc.energy)
                                 {
                                     //获取倒数第二个物品栏
-                                    StationStore stationStore2 = stationComponent.storage[stationComponent.storage.Length - 2];
-                                    if (stationStore2.count > 0)
+                                    StationStore stationStore2 = sc.storage[sc.storage.Length - 2];
+                                    int itemId2 = stationStore2.itemId;
+                                    int count2 = stationStore2.count;
+                                    if (itemId2>0 && count2 > 0)
                                     {
                                         //获取物品的能量值
-                                        long heatValue = LDB.items.Select(stationStore2.itemId).HeatValue;
+                                        long heatValue = LDB.items.Select(itemId2)?.HeatValue ?? 0;
                                         if (heatValue > 0)
                                         {
                                             //获取需要充电的能量
-                                            int needcount = (int)((stationComponent.energyMax - stationComponent.energy) / heatValue);
-                                            if (needcount > stationStore2.count)
-                                            {
-                                                needcount = stationComponent.storage[stationComponent.storage.Length - 2].count;
-                                            }
-                                            StationStore[] storage = stationComponent.storage;
-                                            int num4 = stationComponent.storage.Length - 2;
-                                            storage[num4].count = storage[num4].count - needcount;
-                                            stationComponent.energy += needcount * heatValue;
+                                            int needcount = (int)((sc.energyMax - sc.energy) / heatValue);
+                                            needcount = Math.Min(needcount, count2);;
+                                            sc.storage[k].count -= needcount;
+                                            sc.energy += needcount * heatValue;
                                         }
                                     }
                                 }
                             }
-                            if (veins.ContainsKey(stationStore.itemId))
+                            if (veins.ContainsKey(itemID))
                             {
-                                if (stationComponent.energy < 20000000L) return;
-                                if (veinPool[veins[stationStore.itemId].First()].type == EVeinType.Oil)
+                                if (sc.energy < 20000000) continue;
+                                float count = 0;
+                                bool isoil = LDB.veins.GetVeinTypeByItemId(itemID) == EVeinType.Oil;
+                                foreach (int index in veins[itemID])
                                 {
-                                    float count = 0;
-                                    foreach (int index in veins[stationStore.itemId])
+                                    if (isoil)
                                     {
                                         count += veinPool.Length > index && veinPool[index].productId > 0 ? veinPool[index].amount / 6000f : 0;
                                     }
-                                    StationStore[] storage2 = stationComponent.storage;
-                                    storage2[k].count = storage2[k].count + (int)count;
-                                    productRegister[stationStore.itemId] += factoryProductionStat != null ? (int)count : 0;
-                                    stationComponent.energy -= 20000000L;
-                                }
-                                else
-                                {
-                                    int count = 0;
-                                    foreach (int index in veins[stationStore.itemId])
+                                    else
                                     {
                                         count += GetMine(veinPool, index, miningRate, __instance.planet.factory) ? 1 : 0;
                                     }
-                                    StationStore[] storage3 = stationComponent.storage;
-                                    storage3[k].count = storage3[k].count + count;
-                                    productRegister[stationStore.itemId] += factoryProductionStat != null ? count : 0;
-                                    stationComponent.energy -= 20000000L;
                                 }
+                                sc.storage[k].count += (int)count;
+                                productRegister[itemID] += factoryProductionStat != null ? (int)count : 0;
+                                sc.energy -= 20000000L;
                             }
                             else
                             {
-                                if (stationStore.itemId == __instance.planet.waterItemId)
+                                if (itemID == __instance.planet.waterItemId)
                                 {
-                                    StationStore[] storage4 = stationComponent.storage;
-                                    storage4[k].count += 100;
-                                    productRegister[stationStore.itemId] += factoryProductionStat != null ? 100 : 0;
-                                    stationComponent.energy -= 20000000L;
+                                    sc.storage[k].count += 100;
+                                    productRegister[itemID] += factoryProductionStat != null ? 100 : 0;
+                                    sc.energy -= 20000000L;
                                 }
                             }
                         }
                     }
                 }
+
             }
         }
 
