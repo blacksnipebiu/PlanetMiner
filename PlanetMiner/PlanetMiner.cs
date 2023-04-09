@@ -7,9 +7,12 @@ using UnityEngine;
 
 namespace PlanetMiner
 {
-    [BepInPlugin("crecheng.PlanetMiner", "PlanetMiner", "3.0.1")]
+    [BepInPlugin("crecheng.PlanetMiner", "PlanetMiner", Version)]
     public class PlanetMiner : BaseUnityPlugin
     {
+
+        public const string Version = "3.0.7";
+        public const int uesEnergy = 20000000;
         private void Start()
         {
             Harmony.CreateAndPatchAll(typeof(PlanetMiner), null);
@@ -66,59 +69,60 @@ namespace PlanetMiner
                     {
                         StationStore stationStore = sc.storage[k];
                         int itemID = stationStore.itemId;
-                        if (stationStore.localLogic == ELogisticStorage.Demand && stationStore.max > stationStore.count)
+                        if (stationStore.count < 0) sc.storage[k].count = 0;
+                        if (stationStore.localLogic == ELogisticStorage.Demand)
                         {
-                            if (veins.ContainsKey(itemID) || itemID == __instance.planet.waterItemId)
+                            //当能量不足一半时
+                            if (sc.energyMax / 2 > sc.energy)
                             {
-                                //当能量不足一半时
-                                if (sc.energyMax / 2 > sc.energy)
+                                //获取倒数第二个物品栏
+                                StationStore stationStore2 = sc.storage[sc.storage.Length - 2];
+                                int itemId2 = stationStore2.itemId;
+                                int count2 = stationStore2.count;
+                                if (itemId2 > 0 && count2 > 0)
                                 {
-                                    //获取倒数第二个物品栏
-                                    StationStore stationStore2 = sc.storage[sc.storage.Length - 2];
-                                    int itemId2 = stationStore2.itemId;
-                                    int count2 = stationStore2.count;
-                                    if (itemId2>0 && count2 > 0)
+                                    //获取物品的能量值
+                                    long heatValue = LDB.items.Select(itemId2)?.HeatValue ?? 0;
+                                    if (heatValue > 0)
                                     {
-                                        //获取物品的能量值
-                                        long heatValue = LDB.items.Select(itemId2)?.HeatValue ?? 0;
-                                        if (heatValue > 0)
+                                        //获取需要充电的能量
+                                        int needcount = Math.Min((int)((sc.energyMax - sc.energy) / heatValue), count2); ;
+                                        sc.storage[k].count -= needcount;
+                                        sc.energy += needcount * heatValue;
+                                    }
+                                }
+                            }
+
+                            if (stationStore.max > stationStore.count)
+                            {
+                                if (veins.ContainsKey(itemID))
+                                {
+                                    if (sc.energy < uesEnergy) continue;
+                                    float count = 0;
+                                    bool isoil = LDB.veins.GetVeinTypeByItemId(itemID) == EVeinType.Oil;
+                                    foreach (int index in veins[itemID])
+                                    {
+                                        if (isoil)
                                         {
-                                            //获取需要充电的能量
-                                            int needcount = (int)((sc.energyMax - sc.energy) / heatValue);
-                                            needcount = Math.Min(needcount, count2);;
-                                            sc.storage[k].count -= needcount;
-                                            sc.energy += needcount * heatValue;
+                                            count += veinPool.Length > index && veinPool[index].productId > 0 ? veinPool[index].amount / 6000f : 0;
+                                        }
+                                        else
+                                        {
+                                            count += GetMine(veinPool, index, miningRate, __instance.planet.factory) ? 1 : 0;
                                         }
                                     }
+                                    sc.storage[k].count += (int)count;
+                                    productRegister[itemID] += factoryProductionStat != null ? (int)count : 0;
+                                    sc.energy -= uesEnergy;
                                 }
-                            }
-                            if (veins.ContainsKey(itemID))
-                            {
-                                if (sc.energy < 20000000) continue;
-                                float count = 0;
-                                bool isoil = LDB.veins.GetVeinTypeByItemId(itemID) == EVeinType.Oil;
-                                foreach (int index in veins[itemID])
+                                else
                                 {
-                                    if (isoil)
+                                    if (itemID == __instance.planet.waterItemId)
                                     {
-                                        count += veinPool.Length > index && veinPool[index].productId > 0 ? veinPool[index].amount / 6000f : 0;
+                                        sc.storage[k].count += 100;
+                                        productRegister[itemID] += factoryProductionStat != null ? 100 : 0;
+                                        sc.energy -= uesEnergy;
                                     }
-                                    else
-                                    {
-                                        count += GetMine(veinPool, index, miningRate, __instance.planet.factory) ? 1 : 0;
-                                    }
-                                }
-                                sc.storage[k].count += (int)count;
-                                productRegister[itemID] += factoryProductionStat != null ? (int)count : 0;
-                                sc.energy -= 20000000L;
-                            }
-                            else
-                            {
-                                if (itemID == __instance.planet.waterItemId)
-                                {
-                                    sc.storage[k].count += 100;
-                                    productRegister[itemID] += factoryProductionStat != null ? 100 : 0;
-                                    sc.energy -= 20000000L;
                                 }
                             }
                         }
@@ -147,7 +151,7 @@ namespace PlanetMiner
                 if (miningRate < 0.99999f)
                 {
                     seed = (uint)((seed % 2147483646U + 1U) * 48271UL % 2147483647UL) - 1U;
-                    flag = (seed / 2147483646.0 < (double)miningRate);
+                    flag = seed / 2147483646.0 < (double)miningRate;
                 }
                 if (flag)
                 {
@@ -172,8 +176,6 @@ namespace PlanetMiner
                 return false;
             }
         }
-
-        public const string Version = "3.0.4";
 
         public static bool isRun = false;
 
