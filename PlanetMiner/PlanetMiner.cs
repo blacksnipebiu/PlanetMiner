@@ -11,7 +11,7 @@ namespace PlanetMiner
     public class PlanetMiner : BaseUnityPlugin
     {
 
-        public const string Version = "3.0.7";
+        public const string Version = "3.0.8";
         public const int uesEnergy = 20000000;
         private void Start()
         {
@@ -87,7 +87,7 @@ namespace PlanetMiner
                                     {
                                         //获取需要充电的能量
                                         int needcount = Math.Min((int)((sc.energyMax - sc.energy) / heatValue), count2); ;
-                                        sc.storage[k].count -= needcount;
+                                        sc.storage[sc.storage.Length - 2].count -= needcount;
                                         sc.energy += needcount * heatValue;
                                     }
                                 }
