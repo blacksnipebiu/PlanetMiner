@@ -1,9 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using BepInEx;
+﻿using BepInEx;
 using HarmonyLib;
-using UnityEngine;
+using System;
+using System.Collections.Generic;
 
 namespace PlanetMiner
 {
@@ -11,8 +9,8 @@ namespace PlanetMiner
     public class PlanetMiner : BaseUnityPlugin
     {
 
-        public const string Version = "3.0.8";
-        public const int uesEnergy = 20000000;
+        public const string Version = "3.1.2";
+        public const int uesEnergy = 20_000_000;
         private void Start()
         {
             Harmony.CreateAndPatchAll(typeof(PlanetMiner), null);
@@ -23,113 +21,131 @@ namespace PlanetMiner
             frame += 1L;
         }
 
-        private void Init()
-        {
-            isRun = true;
-        }
-
         [HarmonyPostfix]
         [HarmonyPatch(typeof(FactorySystem), "GameTickLabResearchMode")]
         private static void Miner(FactorySystem __instance)
         {
             GameHistoryData history = GameMain.history;
             float miningSpeedScale = history.miningSpeedScale;
-            if (miningSpeedScale > 0)
+            if (miningSpeedScale <= 0)
             {
-                int baseSpeed = (int)(120f / miningSpeedScale);
-                baseSpeed = baseSpeed <= 0 ? 1 : baseSpeed;
-                if (frame % baseSpeed != 0) return;
-                VeinData[] veinPool = __instance.factory.veinPool;
-                Dictionary<int, List<int>> veins = new Dictionary<int, List<int>>();
-                if (__instance.minerPool[0].seed == 0)
+                return;
+            }
+            int baseSpeed = (int)(120f / miningSpeedScale);
+            baseSpeed = baseSpeed <= 0 ? 1 : baseSpeed;
+            if (frame % baseSpeed != 0) return;
+            VeinData[] veinPool = __instance.factory.veinPool;
+            Dictionary<int, List<int>> veins = new Dictionary<int, List<int>>();
+            if (__instance.minerPool[0].seed == 0)
+            {
+                System.Random random = new System.Random();
+                __instance.minerPool[0].seed = (uint)(__instance.planet.id * 100000 + random.Next(1, 9999));
+            }
+            else
+            {
+                seed = __instance.minerPool[0].seed;
+            }
+            for (int i = 0; i < veinPool.Length; i++)
+            {
+                VeinData veinData = veinPool[i];
+                if (veinData.amount > 0 && veinData.productId > 0)
                 {
-                    System.Random random = new System.Random();
-                    __instance.minerPool[0].seed = (uint)(__instance.planet.id * 100000 + random.Next(1, 9999));
+                    AddVeinData(veins, veinData.productId, i);
                 }
-                else
+            }
+            float miningRate = history.miningCostRate;
+            PlanetTransport transport = __instance.planet.factory.transport;
+            FactoryProductionStat factoryProductionStat = GameMain.statistics.production.factoryStatPool[__instance.factory.index];
+            int[] productRegister = factoryProductionStat?.productRegister;
+            foreach (var sc in transport.stationPool)
+            {
+                if (sc?.storage == null) continue;
+                for (int k = 0; k < sc.storage.Length; k++)
                 {
-                    seed = __instance.minerPool[0].seed;
-                }
-                for (int i = 0; i < veinPool.Length; i++)
-                {
-                    VeinData veinData = veinPool[i];
-                    if (veinData.amount > 0 && veinData.productId > 0)
+                    StationStore stationStore = sc.storage[k];
+                    int itemID = stationStore.itemId;
+                    if (stationStore.count < 0) sc.storage[k].count = 0;
+                    if (stationStore.localLogic != ELogisticStorage.Demand)
                     {
-                        AddVeinData(veins, veinData.productId, i);
+                        continue;
                     }
-                }
-                float miningRate = history.miningCostRate;
-                PlanetTransport transport = __instance.planet.factory.transport;
-                FactoryProductionStat factoryProductionStat = GameMain.statistics.production.factoryStatPool[__instance.factory.index];
-                int[] productRegister = factoryProductionStat?.productRegister;
-                foreach (var sc in transport.stationPool)
-                {
-                    if (sc == null || sc.storage == null) continue;
-                    for (int k = 0; k < sc.storage.Length; k++)
-                    {
-                        StationStore stationStore = sc.storage[k];
-                        int itemID = stationStore.itemId;
-                        if (stationStore.count < 0) sc.storage[k].count = 0;
-                        if (stationStore.localLogic == ELogisticStorage.Demand)
-                        {
-                            //当能量不足一半时
-                            if (sc.energyMax / 2 > sc.energy)
-                            {
-                                //获取倒数第二个物品栏
-                                StationStore stationStore2 = sc.storage[sc.storage.Length - 2];
-                                int itemId2 = stationStore2.itemId;
-                                int count2 = stationStore2.count;
-                                if (itemId2 > 0 && count2 > 0)
-                                {
-                                    //获取物品的能量值
-                                    long heatValue = LDB.items.Select(itemId2)?.HeatValue ?? 0;
-                                    if (heatValue > 0)
-                                    {
-                                        //获取需要充电的能量
-                                        int needcount = Math.Min((int)((sc.energyMax - sc.energy) / heatValue), count2); ;
-                                        sc.storage[sc.storage.Length - 2].count -= needcount;
-                                        sc.energy += needcount * heatValue;
-                                    }
-                                }
-                            }
+                    GenerateEnergy(sc);
 
-                            if (stationStore.max > stationStore.count)
+                    if (stationStore.max <= stationStore.count)
+                    {
+                        continue;
+                    }
+                    if (veins.ContainsKey(itemID))
+                    {
+                        if (sc.energy < uesEnergy) continue;
+                        float count = 0;
+                        bool isoil = LDB.veins.GetVeinTypeByItemId(itemID) == EVeinType.Oil;
+                        foreach (int index in veins[itemID])
+                        {
+                            if (isoil)
                             {
-                                if (veins.ContainsKey(itemID))
-                                {
-                                    if (sc.energy < uesEnergy) continue;
-                                    float count = 0;
-                                    bool isoil = LDB.veins.GetVeinTypeByItemId(itemID) == EVeinType.Oil;
-                                    foreach (int index in veins[itemID])
-                                    {
-                                        if (isoil)
-                                        {
-                                            count += veinPool.Length > index && veinPool[index].productId > 0 ? veinPool[index].amount / 6000f : 0;
-                                        }
-                                        else
-                                        {
-                                            count += GetMine(veinPool, index, miningRate, __instance.planet.factory) ? 1 : 0;
-                                        }
-                                    }
-                                    sc.storage[k].count += (int)count;
-                                    productRegister[itemID] += factoryProductionStat != null ? (int)count : 0;
-                                    sc.energy -= uesEnergy;
-                                }
-                                else
-                                {
-                                    if (itemID == __instance.planet.waterItemId)
-                                    {
-                                        sc.storage[k].count += 100;
-                                        productRegister[itemID] += factoryProductionStat != null ? 100 : 0;
-                                        sc.energy -= uesEnergy;
-                                    }
-                                }
+                                count += veinPool.Length > index && veinPool[index].productId > 0 ? veinPool[index].amount / 6000f : 0;
                             }
+                            else
+                            {
+                                count += GetMine(veinPool, index, miningRate, __instance.planet.factory) ? 1 : 0;
+                            }
+                        }
+                        sc.storage[k].count += (int)count;
+                        productRegister[itemID] += factoryProductionStat != null ? (int)count : 0;
+                        sc.energy -= uesEnergy;
+                    }
+                    else
+                    {
+                        if (itemID == __instance.planet.waterItemId)
+                        {
+                            sc.storage[k].count += 100;
+                            productRegister[itemID] += factoryProductionStat != null ? 100 : 0;
+                            sc.energy -= uesEnergy;
                         }
                     }
                 }
-
             }
+        }
+
+        private static void GenerateEnergy(StationComponent sc)
+        {
+            var SecondtolastIndex = sc.storage.Length - 2;
+            //当能量不足一半时
+            if (SecondtolastIndex<0 || SecondtolastIndex >= sc.storage.Length || sc.energyMax / 2 <= sc.energy)
+            {
+                return;
+            }
+            //获取倒数第二个物品栏
+
+            StationStore fuelStore = sc.storage[SecondtolastIndex];
+            int fuelitemId = fuelStore.itemId;
+            int fuelcount = fuelStore.count;
+            if (fuelitemId <= 0 || fuelcount <= 0)
+            {
+                return;
+            }
+            //获取物品的能量值
+            long heatValue = LDB.items.Select(fuelitemId)?.HeatValue ?? 0;
+            if (heatValue <= 0)
+            {
+                return;
+            }
+            //获取需要充电的能量
+            int needcount = Math.Min((int)((sc.energyMax - sc.energy) / heatValue), fuelcount); ;
+            int usedInc = split_inc_level(ref fuelStore.count, ref fuelStore.inc, needcount);
+            double num = 1;
+            if (needcount > 0 && usedInc > 0)
+            {
+                int inclevel = usedInc / needcount;
+                if (inclevel >= 0 && inclevel < Cargo.incTableMilli.Length)
+                {
+                    num += Cargo.incTableMilli[inclevel];
+                }
+            }
+            sc.energy += (long)(needcount * heatValue * num);
+            sc.storage[SecondtolastIndex].inc = fuelStore.inc;
+            sc.storage[SecondtolastIndex].count = fuelStore.count;
         }
 
         private static void AddVeinData(Dictionary<int, List<int>> veins, int item, int index)
@@ -177,10 +193,18 @@ namespace PlanetMiner
             }
         }
 
-        public static bool isRun = false;
-
         private static long frame = 0L;
 
         private static uint seed = 100000U;
+        private static int split_inc_level(ref int count, ref int totalinc, int requireCount)
+        {
+            int usedInc = totalinc / count;
+            int num2 = totalinc - usedInc * count;
+            count -= requireCount;
+            num2 -= count;
+            usedInc = ((num2 > 0) ? (usedInc * requireCount + num2) : (usedInc * requireCount));
+            totalinc -= usedInc;
+            return usedInc;
+        }
     }
 }
