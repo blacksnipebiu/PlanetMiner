@@ -2,6 +2,8 @@
 using HarmonyLib;
 using System;
 using System.Collections.Generic;
+using System.Security.Policy;
+using UnityEngine;
 
 namespace PlanetMiner
 {
@@ -9,13 +11,12 @@ namespace PlanetMiner
     public class PlanetMiner : BaseUnityPlugin
     {
 
-        public const string Version = "3.1.2";
+        public const string Version = "3.1.4";
         public const int uesEnergy = 20_000_000;
         private void Start()
         {
             Harmony.CreateAndPatchAll(typeof(PlanetMiner), null);
         }
-
         private void Update()
         {
             frame += 1L;
@@ -36,15 +37,6 @@ namespace PlanetMiner
             if (frame % baseSpeed != 0) return;
             VeinData[] veinPool = __instance.factory.veinPool;
             Dictionary<int, List<int>> veins = new Dictionary<int, List<int>>();
-            if (__instance.minerPool[0].seed == 0)
-            {
-                System.Random random = new System.Random();
-                __instance.minerPool[0].seed = (uint)(__instance.planet.id * 100000 + random.Next(1, 9999));
-            }
-            else
-            {
-                seed = __instance.minerPool[0].seed;
-            }
             for (int i = 0; i < veinPool.Length; i++)
             {
                 VeinData veinData = veinPool[i];
@@ -164,10 +156,11 @@ namespace PlanetMiner
             if (veinDatas[index].amount > 0)
             {
                 bool flag = true;
-                if (miningRate < 0.99999f)
+                if (miningRate > 0)
                 {
-                    seed = (uint)((seed % 2147483646U + 1U) * 48271UL % 2147483647UL) - 1U;
-                    flag = seed / 2147483646.0 < (double)miningRate;
+                    costFrac += miningRate;
+                    flag = (int)costFrac > 0;
+                    costFrac -= flag?1:0;
                 }
                 if (flag)
                 {
@@ -195,7 +188,7 @@ namespace PlanetMiner
 
         private static long frame = 0L;
 
-        private static uint seed = 100000U;
+        private static double costFrac = 0;
         private static int split_inc_level(ref int count, ref int totalinc, int requireCount)
         {
             int usedInc = totalinc / count;
