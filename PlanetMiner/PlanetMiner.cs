@@ -158,8 +158,8 @@ namespace PlanetMiner
                 bool flag = false;
                 if (miningRate > 0)
                 {
-                costFrac += miningRate;
-                flag = (int)costFrac > 0;
+                    costFrac += miningRate;
+                    flag = (int)costFrac > 0;
                     costFrac -= flag?1:0;
                 }
                 if (flag)
