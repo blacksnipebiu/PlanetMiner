@@ -155,11 +155,11 @@ namespace PlanetMiner
             if (veinDatas.Length <= 0 || veinDatas[index].productId <= 0) return false;
             if (veinDatas[index].amount > 0)
             {
-                bool flag = true;
+                bool flag = false;
                 if (miningRate > 0)
                 {
-                    costFrac += miningRate;
-                    flag = (int)costFrac > 0;
+                costFrac += miningRate;
+                flag = (int)costFrac > 0;
                     costFrac -= flag?1:0;
                 }
                 if (flag)
