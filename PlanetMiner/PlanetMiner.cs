@@ -8,10 +8,9 @@ using HarmonyLib;
 
 namespace PlanetMiner
 {
-    [BepInPlugin("crecheng.PlanetMiner", "PlanetMiner", "3.1.4")]
+    [BepInPlugin("crecheng.PlanetMiner", "PlanetMiner", "3.1.6")]
     public class PlanetMiner : BaseUnityPlugin
     {
-        public const string Version = "3.1.4";
         public const float DefaultMaxPlanetRadius = 100f;
         public const int uesEnergy = 20000000;
 
@@ -57,7 +56,6 @@ namespace PlanetMiner
         private static readonly ConcurrentDictionary<int, long> _heatValueCache = new ConcurrentDictionary<int, long>();
         private static readonly ConcurrentDictionary<int, bool> _oilItemCache = new ConcurrentDictionary<int, bool>();
         private static readonly ConcurrentDictionary<int, FactoryState> _stateByFactory = new ConcurrentDictionary<int, FactoryState>();
-
 
         private static void EnsureWeaverResolved()
         {
@@ -688,12 +686,5 @@ namespace PlanetMiner
             totalinc -= a;
             return a;
         }
-    }
-
-    public static class MyPluginInfo
-    {
-        public const string PLUGIN_GUID = "crecheng.PlanetMiner";
-        public const string PLUGIN_NAME = "PlanetMiner";
-        public const string PLUGIN_VERSION = "3.1.4";
     }
 }
