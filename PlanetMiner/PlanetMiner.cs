@@ -14,7 +14,7 @@ namespace PlanetMiner
         public const float DefaultMaxPlanetRadius = 100f;
         public const int uesEnergy = 20000000;
 
-        private static volatile bool _enablePlanetRadiusLimit = true;
+        private static volatile bool _enablePlanetRadiusLimit = false;
         private static volatile float _maxPlanetRadius = DefaultMaxPlanetRadius;
 
         private ConfigEntry<bool> _enablePlanetRadiusLimitConfig;
@@ -165,7 +165,12 @@ namespace PlanetMiner
                 return value;
             }
 
-            value = (int)LDB.veins.GetVeinTypeByItemId(itemId) == 7;
+            // Vein type 7 = Oil (vanilla)
+            // Vein type 16 = DeepMagma, 19 = Ice (OrbitalRing-MOD)
+            // These are all rate-based veins (oil-like) whose amount represents
+            // production speed, not a finite stockpile.
+            int veinType = (int)LDB.veins.GetVeinTypeByItemId(itemId);
+            value = veinType == 7 || veinType == 16 || veinType == 19;
             _oilItemCache.TryAdd(itemId, value);
             return value;
         }
@@ -373,7 +378,7 @@ namespace PlanetMiner
             _enablePlanetRadiusLimitConfig = Config.Bind(
                 "Gameplay",
                 "EnablePlanetRadiusLimit",
-                true,
+                false,
                 "Whether PlanetMiner is limited by planet radius.");
 
             _maxPlanetRadiusConfig = Config.Bind(
@@ -396,7 +401,7 @@ namespace PlanetMiner
 
         private void ApplyConfigValues()
         {
-            _enablePlanetRadiusLimit = _enablePlanetRadiusLimitConfig == null || _enablePlanetRadiusLimitConfig.Value;
+            _enablePlanetRadiusLimit = _enablePlanetRadiusLimitConfig != null && _enablePlanetRadiusLimitConfig.Value;
             float configuredRadius = _maxPlanetRadiusConfig?.Value ?? DefaultMaxPlanetRadius;
             _maxPlanetRadius = configuredRadius > 0f ? configuredRadius : DefaultMaxPlanetRadius;
         }
