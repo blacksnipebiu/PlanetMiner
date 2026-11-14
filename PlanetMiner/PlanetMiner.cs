@@ -14,7 +14,7 @@ namespace PlanetMiner
         public const float DefaultMaxPlanetRadius = 100f;
         public const int uesEnergy = 20000000;
 
-        public const float DefaultEnergyCostMultiplier = 2f;
+        public const float DefaultEnergyCostMultiplier = 1f;
 
         // A vanilla Mining Machine draws 420 kW and mines 0.5 items per second from each vein it covers
         // (before mining speed research), so it spends 840 kJ per item divided by the veins it covers.
