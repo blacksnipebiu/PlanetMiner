@@ -18,8 +18,8 @@ namespace PlanetMiner
 
         // A vanilla Mining Machine draws 420 kW and mines 0.5 items per second from each vein it covers
         // (before mining speed research), so it spends 840 kJ per item divided by the veins it covers.
-        // The reference machine is taken to cover 6 veins: 140 kJ per item.
-        private const int MiningMachineVeins = 6;
+        // The reference machine is taken to cover 7 veins: 120 kJ per item.
+        private const int MiningMachineVeins = 7;
         private const double MiningMachineEnergyPerItem = 840000.0 / MiningMachineVeins;
 
         public enum EnergyCostMode
@@ -414,7 +414,7 @@ namespace PlanetMiner
                 "How mining ore veins is charged to the station. "
                 + "Fixed: 20 MJ per slot per mining pass, however many items it yields. "
                 + "MiningMachine: every mined item costs EnergyCostMultiplier times what a vanilla Mining Machine "
-                + "(420 kW, covering 6 veins) spends per item. "
+                + "(420 kW, covering 7 veins) spends per item. "
                 + "Oil-like veins and water always use the fixed cost.");
 
             _energyCostMultiplierConfig = Config.Bind(
