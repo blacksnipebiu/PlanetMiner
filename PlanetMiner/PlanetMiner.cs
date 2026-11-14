@@ -14,11 +14,32 @@ namespace PlanetMiner
         public const float DefaultMaxPlanetRadius = 100f;
         public const int uesEnergy = 20000000;
 
+        public const float DefaultEnergyCostMultiplier = 2f;
+        public const int DefaultMiningMachineVeins = 8;
+
+        // A vanilla Mining Machine draws 420 kW and mines 0.5 items per second from each vein it covers
+        // (before mining speed research), so it spends 840 kJ per item divided by the veins it covers.
+        private const double MiningMachineEnergyPerVeinItem = 840000.0;
+
+        public enum EnergyCostMode
+        {
+            /// <summary>20 MJ per station slot per mining pass, however many items the pass yields.</summary>
+            Fixed,
+            /// <summary>Each mined item costs a multiple of what a vanilla Mining Machine spends per item.</summary>
+            MiningMachine
+        }
+
         private static volatile bool _enablePlanetRadiusLimit = false;
         private static volatile float _maxPlanetRadius = DefaultMaxPlanetRadius;
+        private static volatile bool _energyPerItem = false;
+        private static volatile float _energyCostMultiplier = DefaultEnergyCostMultiplier;
+        private static volatile int _miningMachineVeins = DefaultMiningMachineVeins;
 
         private ConfigEntry<bool> _enablePlanetRadiusLimitConfig;
         private ConfigEntry<float> _maxPlanetRadiusConfig;
+        private ConfigEntry<EnergyCostMode> _energyCostModeConfig;
+        private ConfigEntry<float> _energyCostMultiplierConfig;
+        private ConfigEntry<int> _miningMachineVeinsConfig;
 
         private sealed class FactoryState
         {
@@ -387,9 +408,33 @@ namespace PlanetMiner
                 DefaultMaxPlanetRadius,
                 "PlanetMiner works only when planet.radius is smaller than this value.");
 
+            _energyCostModeConfig = Config.Bind(
+                "Energy",
+                "EnergyCostMode",
+                EnergyCostMode.Fixed,
+                "How mining ore veins is charged to the station. "
+                + "Fixed: 20 MJ per slot per mining pass, however many items it yields. "
+                + "MiningMachine: every mined item costs EnergyCostMultiplier times what a vanilla Mining Machine spends per item. "
+                + "Oil-like veins and water always use the fixed cost.");
+
+            _energyCostMultiplierConfig = Config.Bind(
+                "Energy",
+                "EnergyCostMultiplier",
+                DefaultEnergyCostMultiplier,
+                "MiningMachine mode: how many times the energy of a vanilla Mining Machine each mined item costs.");
+
+            _miningMachineVeinsConfig = Config.Bind(
+                "Energy",
+                "MiningMachineVeins",
+                DefaultMiningMachineVeins,
+                "MiningMachine mode: how many veins the reference Mining Machine (420 kW) is assumed to cover.");
+
             ApplyConfigValues();
             _enablePlanetRadiusLimitConfig.SettingChanged += OnConfigSettingChanged;
             _maxPlanetRadiusConfig.SettingChanged += OnConfigSettingChanged;
+            _energyCostModeConfig.SettingChanged += OnConfigSettingChanged;
+            _energyCostMultiplierConfig.SettingChanged += OnConfigSettingChanged;
+            _miningMachineVeinsConfig.SettingChanged += OnConfigSettingChanged;
 
             Harmony.CreateAndPatchAll(typeof(PlanetMiner), null);
         }
@@ -404,6 +449,22 @@ namespace PlanetMiner
             _enablePlanetRadiusLimit = _enablePlanetRadiusLimitConfig != null && _enablePlanetRadiusLimitConfig.Value;
             float configuredRadius = _maxPlanetRadiusConfig?.Value ?? DefaultMaxPlanetRadius;
             _maxPlanetRadius = configuredRadius > 0f ? configuredRadius : DefaultMaxPlanetRadius;
+
+            _energyPerItem = _energyCostModeConfig != null && _energyCostModeConfig.Value == EnergyCostMode.MiningMachine;
+            float configuredMultiplier = _energyCostMultiplierConfig?.Value ?? DefaultEnergyCostMultiplier;
+            _energyCostMultiplier = configuredMultiplier > 0f ? configuredMultiplier : DefaultEnergyCostMultiplier;
+            int configuredVeins = _miningMachineVeinsConfig?.Value ?? DefaultMiningMachineVeins;
+            _miningMachineVeins = configuredVeins > 0 ? configuredVeins : DefaultMiningMachineVeins;
+        }
+
+        /// <summary>
+        /// Energy one mined item costs in MiningMachine mode. Mining speed research makes a vanilla miner
+        /// faster at the same power, so its energy per item drops by the same factor.
+        /// </summary>
+        private static long GetEnergyPerItem(float miningSpeedScale)
+        {
+            double perItem = MiningMachineEnergyPerVeinItem * _energyCostMultiplier / (_miningMachineVeins * (double)miningSpeedScale);
+            return perItem < 1.0 ? 1L : (long)perItem;
         }
 
         [HarmonyPostfix]
@@ -487,6 +548,7 @@ namespace PlanetMiner
 
                 int waterItemId = __instance.planet.waterItemId;
                 float miningCostRate = history.miningCostRate;
+                long energyPerItem = _energyPerItem ? GetEnergyPerItem(miningSpeedScale) : 0L;
                 StationComponent[] stationPool = transport.stationPool;
                 double costFrac = state.CostFrac;
 
@@ -537,13 +599,18 @@ namespace PlanetMiner
 
                         if (hasVeins)
                         {
-                            if (station.energy < uesEnergy && !generatedEnergy)
+                            // Ore veins in MiningMachine mode pay per mined item; everything else pays the fixed cost.
+                            bool payPerItem = energyPerItem > 0L && !isOil;
+                            long energyWanted = payPerItem ? indices.Count * energyPerItem : uesEnergy;
+                            long energyNeeded = payPerItem ? energyPerItem : uesEnergy;
+
+                            if (station.energy < energyWanted && !generatedEnergy)
                             {
                                 GenerateEnergy(station);
                                 generatedEnergy = true;
                             }
 
-                            if (station.energy < uesEnergy)
+                            if (station.energy < energyNeeded)
                             {
                                 continue;
                             }
@@ -573,11 +640,21 @@ namespace PlanetMiner
                             }
                             else
                             {
-                                int count = indices.Count;
+                                int total = indices.Count;
+                                int count = total;
+                                int first = 0;
+                                if (payPerItem && station.energy < energyWanted)
+                                {
+                                    // Not enough energy for every vein: mine what the station can pay for,
+                                    // starting at a different vein each pass so they deplete evenly.
+                                    count = (int)(station.energy / energyPerItem);
+                                    first = (int)((tick / interval) % total);
+                                }
+
                                 bool cacheStale = false;
                                 for (int i = 0; i < count; i++)
                                 {
-                                    if (TryMine(veinPool, indices[i], itemId, miningCostRate, factory, ref costFrac, out bool changedCache))
+                                    if (TryMine(veinPool, indices[(first + i) % total], itemId, miningCostRate, factory, ref costFrac, out bool changedCache))
                                     {
                                         addInt++;
                                     }
@@ -602,7 +679,7 @@ namespace PlanetMiner
 
                             storage[k].count += addInt;
                             AddProductStat(productRegister, itemId, addInt);
-                            station.energy -= uesEnergy;
+                            station.energy -= payPerItem ? addInt * energyPerItem : uesEnergy;
                         }
                         else if (itemId == waterItemId)
                         {
