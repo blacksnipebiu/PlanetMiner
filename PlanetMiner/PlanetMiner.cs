@@ -15,11 +15,12 @@ namespace PlanetMiner
         public const int uesEnergy = 20000000;
 
         public const float DefaultEnergyCostMultiplier = 2f;
-        public const int DefaultMiningMachineVeins = 8;
 
         // A vanilla Mining Machine draws 420 kW and mines 0.5 items per second from each vein it covers
         // (before mining speed research), so it spends 840 kJ per item divided by the veins it covers.
-        private const double MiningMachineEnergyPerVeinItem = 840000.0;
+        // The reference machine is taken to cover 6 veins: 140 kJ per item.
+        private const int MiningMachineVeins = 6;
+        private const double MiningMachineEnergyPerItem = 840000.0 / MiningMachineVeins;
 
         public enum EnergyCostMode
         {
@@ -33,13 +34,11 @@ namespace PlanetMiner
         private static volatile float _maxPlanetRadius = DefaultMaxPlanetRadius;
         private static volatile bool _energyPerItem = false;
         private static volatile float _energyCostMultiplier = DefaultEnergyCostMultiplier;
-        private static volatile int _miningMachineVeins = DefaultMiningMachineVeins;
 
         private ConfigEntry<bool> _enablePlanetRadiusLimitConfig;
         private ConfigEntry<float> _maxPlanetRadiusConfig;
         private ConfigEntry<EnergyCostMode> _energyCostModeConfig;
         private ConfigEntry<float> _energyCostMultiplierConfig;
-        private ConfigEntry<int> _miningMachineVeinsConfig;
 
         private sealed class FactoryState
         {
@@ -414,7 +413,8 @@ namespace PlanetMiner
                 EnergyCostMode.Fixed,
                 "How mining ore veins is charged to the station. "
                 + "Fixed: 20 MJ per slot per mining pass, however many items it yields. "
-                + "MiningMachine: every mined item costs EnergyCostMultiplier times what a vanilla Mining Machine spends per item. "
+                + "MiningMachine: every mined item costs EnergyCostMultiplier times what a vanilla Mining Machine "
+                + "(420 kW, covering 6 veins) spends per item. "
                 + "Oil-like veins and water always use the fixed cost.");
 
             _energyCostMultiplierConfig = Config.Bind(
@@ -423,18 +423,11 @@ namespace PlanetMiner
                 DefaultEnergyCostMultiplier,
                 "MiningMachine mode: how many times the energy of a vanilla Mining Machine each mined item costs.");
 
-            _miningMachineVeinsConfig = Config.Bind(
-                "Energy",
-                "MiningMachineVeins",
-                DefaultMiningMachineVeins,
-                "MiningMachine mode: how many veins the reference Mining Machine (420 kW) is assumed to cover.");
-
             ApplyConfigValues();
             _enablePlanetRadiusLimitConfig.SettingChanged += OnConfigSettingChanged;
             _maxPlanetRadiusConfig.SettingChanged += OnConfigSettingChanged;
             _energyCostModeConfig.SettingChanged += OnConfigSettingChanged;
             _energyCostMultiplierConfig.SettingChanged += OnConfigSettingChanged;
-            _miningMachineVeinsConfig.SettingChanged += OnConfigSettingChanged;
 
             Harmony.CreateAndPatchAll(typeof(PlanetMiner), null);
         }
@@ -453,8 +446,6 @@ namespace PlanetMiner
             _energyPerItem = _energyCostModeConfig != null && _energyCostModeConfig.Value == EnergyCostMode.MiningMachine;
             float configuredMultiplier = _energyCostMultiplierConfig?.Value ?? DefaultEnergyCostMultiplier;
             _energyCostMultiplier = configuredMultiplier > 0f ? configuredMultiplier : DefaultEnergyCostMultiplier;
-            int configuredVeins = _miningMachineVeinsConfig?.Value ?? DefaultMiningMachineVeins;
-            _miningMachineVeins = configuredVeins > 0 ? configuredVeins : DefaultMiningMachineVeins;
         }
 
         /// <summary>
@@ -463,7 +454,7 @@ namespace PlanetMiner
         /// </summary>
         private static long GetEnergyPerItem(float miningSpeedScale)
         {
-            double perItem = MiningMachineEnergyPerVeinItem * _energyCostMultiplier / (_miningMachineVeins * (double)miningSpeedScale);
+            double perItem = MiningMachineEnergyPerItem * _energyCostMultiplier / miningSpeedScale;
             return perItem < 1.0 ? 1L : (long)perItem;
         }
 
