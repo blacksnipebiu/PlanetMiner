@@ -1,79 +1,56 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+<Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{14898231-414A-4A7C-A343-FA3ADEC8E4FA}</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>PlanetMiner</RootNamespace>
+    <TargetFramework>net472</TargetFramework>
+    <LangVersion>latest</LangVersion>
     <AssemblyName>PlanetMiner</AssemblyName>
-    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
-    <FileAlignment>512</FileAlignment>
+    <RootNamespace>PlanetMiner</RootNamespace>
+    <OutputType>Library</OutputType>
     <Deterministic>true</Deterministic>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
+
+  <!-- Where the game is installed. Override on the command line with
+       -p:DSPGameRoot="D:\Steam\steamapps\common\Dyson Sphere Program". -->
+  <PropertyGroup>
+    <DSPGameRoot Condition="'$(DSPGameRoot)' == ''">E:\Game\Steam\steamapps\common\Dyson Sphere Program</DSPGameRoot>
+    <DSPManaged Condition="'$(DSPManaged)' == ''">$(DSPGameRoot)\DSPGAME_Data\Managed</DSPManaged>
+    <DSPCore Condition="'$(DSPCore)' == ''">$(DSPGameRoot)\BepInEx\core</DSPCore>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-  </PropertyGroup>
+
   <ItemGroup>
     <Reference Include="0Harmony">
-      <HintPath>E:\steam\steamapps\common\Dyson Sphere Program\BepInEx\core\0Harmony.dll</HintPath>
+      <HintPath>$(DSPCore)\0Harmony.dll</HintPath>
+      <Private>false</Private>
     </Reference>
     <Reference Include="Assembly-CSharp">
-      <HintPath>E:\steam\steamapps\common\Dyson Sphere Program\DSPGAME_Data\Managed\Assembly-CSharp.dll</HintPath>
+      <HintPath>$(DSPManaged)\Assembly-CSharp.dll</HintPath>
+      <Private>false</Private>
     </Reference>
     <Reference Include="BepInEx">
-      <HintPath>E:\steam\steamapps\common\Dyson Sphere Program\BepInEx\core\BepInEx.dll</HintPath>
+      <HintPath>$(DSPCore)\BepInEx.dll</HintPath>
+      <Private>false</Private>
     </Reference>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Xml.Linq" />
-    <Reference Include="System.Data.DataSetExtensions" />
-    <Reference Include="Microsoft.CSharp" />
-    <Reference Include="System.Data" />
-    <Reference Include="System.Net.Http" />
-    <Reference Include="System.Xml" />
     <Reference Include="UnityEngine">
-      <HintPath>E:\steam\steamapps\common\Dyson Sphere Program\DSPGAME_Data\Managed\UnityEngine.dll</HintPath>
+      <HintPath>$(DSPManaged)\UnityEngine.dll</HintPath>
+      <Private>false</Private>
     </Reference>
     <Reference Include="UnityEngine.CoreModule">
-      <HintPath>E:\steam\steamapps\common\Dyson Sphere Program\DSPGAME_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
-    </Reference>
-    <Reference Include="WpfLibrary1">
-      <HintPath>..\..\WpfApp1\WpfLibrary1\bin\Debug\net6.0-windows\WpfLibrary1.dll</HintPath>
+      <HintPath>$(DSPManaged)\UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
     </Reference>
   </ItemGroup>
-  <ItemGroup>
-    <Compile Include="Compat\MiningCompat.cs" />
-    <Compile Include="Energy\EnergyCost.cs" />
-    <Compile Include="Energy\StationEnergy.cs" />
-    <Compile Include="Mining\FactoryStates.cs" />
-    <Compile Include="Mining\MinerPatch.cs" />
-    <Compile Include="Mining\VeinMining.cs" />
-    <Compile Include="PlanetMiner.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
-  </ItemGroup>
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <PropertyGroup>
-    <PostBuildEvent>taskkill /f /im DSPGAME.exe
-mkdir "E:\Game\SteamLibrary\steamapps\common\Dyson Sphere Program\BepInEx\plugins\$(ProjectName)"
-del /q "E:\Game\SteamLibrary\steamapps\common\Dyson Sphere Program\BepInEx\plugins\$(ProjectName)\$(TargetFileName)"
-copy "$(TargetPath)" "E:\Game\SteamLibrary\steamapps\common\Dyson Sphere Program\BepInEx\plugins\$(ProjectName)\$(TargetFileName)"
-start steam://rungameid/1366540</PostBuildEvent>
-  </PropertyGroup>
+
+  <!-- Copy the built plugin into the game and restart it.
+       -p:DeployAfterBuild=false skips the copy, -p:LaunchGameAfterBuild=false keeps the game closed. -->
+  <Target Name="DeployToGame" AfterTargets="Build" Condition="'$(DeployAfterBuild)' != 'false'">
+    <Exec Command="taskkill /f /im DSPGAME.exe &gt;nul 2&gt;&amp;1" IgnoreExitCode="true"
+          StandardOutputImportance="low" StandardErrorImportance="low" />
+    <MakeDir Directories="$(DSPGameRoot)\BepInEx\plugins\$(AssemblyName)" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(DSPGameRoot)\BepInEx\plugins\$(AssemblyName)" />
+    <Exec Condition="'$(LaunchGameAfterBuild)' != 'false'" Command="start steam://rungameid/1366540" IgnoreExitCode="true" />
+  </Target>
+
 </Project>

@@ -49,12 +49,32 @@ Dyson Sphere Program (戴森球计划) 的 BepInEx 插件，自动在星际运�
 
 ## 构建
 
-```bash
-# 使用 MSBuild
-msbuild PlanetMiner.sln /p:Configuration=Release
+需要装好游戏。项目会自动从 `E:\Game\Steam\steamapps\common\Dyson Sphere Program` 读取游戏程序集，装在别处时用 `DSPGameRoot` 指过去：
 
+```bash
+msbuild PlanetMiner.sln /p:Configuration=Release
+# 或：
+msbuild PlanetMiner.sln /p:Configuration=Release /p:DSPGameRoot="D:\Steam\steamapps\common\Dyson Sphere Program"
 # 输出位于 PlanetMiner/bin/Release/PlanetMiner.dll
 ```
+
+生成后默认会把 DLL 复制到 `$(DSPGameRoot)\BepInEx\plugins\PlanetMiner\` 并启动游戏；`/p:DeployAfterBuild=false` 跳过复制，`/p:LaunchGameAfterBuild=false` 只复制不启动。
+
+## 发布
+
+`scripts\package.cmd` 打包（走 `-ExecutionPolicy Bypass`，不受系统脚本策略影响）：
+
+```bat
+scripts\package.cmd
+```
+
+默认会先编译 Release（`dotnet build`，找不到 dotnet 时用 VS 的 MSBuild），再打包；版本号从 `PlanetMiner.cs` 的 `[BepInPlugin]` 读，输出 `artifacts\PlanetMiner-<版本>.zip`。
+
+包内容平铺在压缩包根目录：`PlanetMiner.dll`、`manifest.json`（版本号按参数写入）、`icon.png`、`README.md`。
+
+- 已经有编译结果、不想再编：`scripts\package.cmd -SkipBuild`（Release 不存在时会退回用 Debug 并给出警告）
+- 想指定 DLL / 版本 / 输出：`scripts\package.cmd -Dll <路径> -Version 3.1.9 -Out <zip>`
+- 需要 Thunderstore 要求的 `BepInEx/plugins/PlanetMiner/PlanetMiner.dll` 目录结构：加 `-GameLayout`
 
 ## 工作原理
 
