@@ -59,7 +59,13 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="EnergyCost.cs" />
+    <Compile Include="FactoryStates.cs" />
+    <Compile Include="MinerPatch.cs" />
+    <Compile Include="MiningCompat.cs" />
     <Compile Include="PlanetMiner.cs" />
+    <Compile Include="StationEnergy.cs" />
+    <Compile Include="VeinMining.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
