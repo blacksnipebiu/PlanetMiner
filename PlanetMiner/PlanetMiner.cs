@@ -5,7 +5,7 @@ using HarmonyLib;
 
 namespace PlanetMiner
 {
-    [BepInPlugin("crecheng.PlanetMiner", "PlanetMiner", "3.1.6")]
+    [BepInPlugin("crecheng.PlanetMiner", "PlanetMiner", "3.1.8")]
     public class PlanetMiner : BaseUnityPlugin
     {
         public const float DefaultMaxPlanetRadius = 100f;
