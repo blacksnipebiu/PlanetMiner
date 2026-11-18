@@ -24,8 +24,22 @@ Dyson Sphere Program (戴森球计划) 的 BepInEx 插件，自动在星际运�
 |------|--------|------|
 | `EnablePlanetRadiusLimit` | `true` | 是否启用行星半径限制 |
 | `MaxPlanetRadius` | `100` | 生效的最大行星半径（仅当 `EnablePlanetRadiusLimit=true` 时） |
+| `EnergyCostMode` | `Fixed` | 矿脉采矿的耗能方式：`Fixed` 或 `MiningMachine`，见下文 |
+| `EnergyCostMultiplier` | `1` | `MiningMachine` 模式下，每个矿物的耗能是原版采矿机的多少倍 |
 
 修改配置后无需重启游戏。
+
+### 耗能方式
+
+- `Fixed`（默认，与之前的行为相同）：每个栏位每次采矿固定消耗 20 MJ，与采到多少矿物无关。
+  平均功率为每栏位 10 MW × 采矿速度倍率，所以矿脉少的星球每个矿物的耗能很高
+  （20 个矿脉时每个矿物 1 MJ，约为原版采矿机的 8 倍）。
+- `MiningMachine`：按采到的矿物数量计费，每个矿物的耗能 =
+  `EnergyCostMultiplier × 120 kJ ÷ 采矿速度倍率`。
+  120 kJ 是一台原版采矿机（420 kW，按覆盖 7 个矿脉算）采一个矿物的耗能，
+  所以总功率是"用原版采矿机覆盖全星球该矿种"的 `EnergyCostMultiplier` 倍，
+  默认设置下为每个矿脉 60 kW。能量不足以采完所有矿脉时，只采付得起的部分。
+- 油井类矿脉和水始终按 `Fixed` 计费。
 
 ## 系统要求
 
