@@ -107,6 +107,16 @@ namespace PlanetMiner
                     StationStore[] storage = station.storage;
                     bool generatedEnergy = false;
 
+                    // Burn fuel whenever the charge is below half, not only when a slot mines this pass: a station
+                    // whose mining slots are all full would otherwise never charge, and its drones and vessels stall.
+                    if (!station.isCollector && !station.isVeinCollector
+                        && station.energy < station.energyMax / 2
+                        && HasMiningSlot(storage, state, waterItemId))
+                    {
+                        StationEnergy.Generate(station);
+                        generatedEnergy = true;
+                    }
+
                     for (int k = 0; k < storage.Length; k++)
                     {
                         StationStore slot = storage[k];
@@ -247,6 +257,24 @@ namespace PlanetMiner
 
                 state.CostFrac = costFrac;
             }
+        }
+
+        /// <summary>
+        /// Whether any slot is a mining slot: local demand on an item that this planet's veins or ocean supply.
+        /// </summary>
+        private static bool HasMiningSlot(StationStore[] storage, FactoryState state, int waterItemId)
+        {
+            for (int k = 0; k < storage.Length; k++)
+            {
+                int itemId = storage[k].itemId;
+                if ((int)storage[k].localLogic == 2 && itemId > 0
+                    && (itemId == waterItemId || state.VeinsByItem.ContainsKey(itemId)))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }
