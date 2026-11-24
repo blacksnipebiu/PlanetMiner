@@ -117,8 +117,18 @@ namespace PlanetMiner
                         generatedEnergy = true;
                     }
 
-                    for (int k = 0; k < storage.Length; k++)
+                    // A station that is short of energy mines "what it can pay for", slot by slot, so the first
+                    // slots swallow a small trickle (a weak grid, a few solar panels) and the fuel slot behind them
+                    // never gets its first item: the station cannot start. With MineFuelSlotFirst the fuel slot
+                    // takes its turn first.
+                    int fuelIndex = storage.Length - 2;
+                    bool fuelFirst = PlanetMiner.MineFuelSlotFirst
+                        && fuelIndex > 0
+                        && !station.isCollector && !station.isVeinCollector;
+
+                    for (int n = 0; n < storage.Length; n++)
                     {
+                        int k = fuelFirst ? SlotInFuelFirstOrder(n, fuelIndex) : n;
                         StationStore slot = storage[k];
                         if (slot.count < 0)
                         {
@@ -257,6 +267,20 @@ namespace PlanetMiner
 
                 state.CostFrac = costFrac;
             }
+        }
+
+        /// <summary>
+        /// Slot visited at step <paramref name="n"/> when the fuel slot goes first: the fuel slot, then the
+        /// other slots in their usual order.
+        /// </summary>
+        internal static int SlotInFuelFirstOrder(int n, int fuelIndex)
+        {
+            if (n == 0)
+            {
+                return fuelIndex;
+            }
+
+            return n <= fuelIndex ? n - 1 : n;
         }
 
         /// <summary>

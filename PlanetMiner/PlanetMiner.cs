@@ -25,11 +25,13 @@ public class PlanetMiner : BaseUnityPlugin
     private static volatile float _maxPlanetRadius = DefaultMaxPlanetRadius;
     private static volatile bool _energyPerItem = false;
     private static volatile float _energyCostMultiplier = DefaultEnergyCostMultiplier;
+    private static volatile bool _mineFuelSlotFirst = false;
 
     private ConfigEntry<bool> _enablePlanetRadiusLimitConfig;
     private ConfigEntry<float> _maxPlanetRadiusConfig;
     private ConfigEntry<EnergyCostMode> _energyCostModeConfig;
     private ConfigEntry<float> _energyCostMultiplierConfig;
+    private ConfigEntry<bool> _mineFuelSlotFirstConfig;
 
     internal static bool PlanetRadiusLimitEnabled
     {
@@ -49,6 +51,11 @@ public class PlanetMiner : BaseUnityPlugin
     internal static float EnergyCostMultiplier
     {
         get { return _energyCostMultiplier; }
+    }
+
+    internal static bool MineFuelSlotFirst
+    {
+        get { return _mineFuelSlotFirst; }
     }
 
     private void Start()
@@ -81,11 +88,21 @@ public class PlanetMiner : BaseUnityPlugin
             DefaultEnergyCostMultiplier,
             "MiningMachine mode: how many times the energy of a vanilla Mining Machine each mined item costs.");
 
+        _mineFuelSlotFirstConfig = Config.Bind(
+            "Energy",
+            "MineFuelSlotFirst",
+            false,
+            "Mine a station's fuel slot (the second to last slot) before its other slots. "
+            + "A station that is short of energy mines only what it can pay for, slot by slot, so without this "
+            + "the first slots use up a small trickle of power and the fuel slot never gets its first item: "
+            + "a newly built station fed by a weak grid cannot start itself.");
+
         ApplyConfigValues();
         _enablePlanetRadiusLimitConfig.SettingChanged += OnConfigSettingChanged;
         _maxPlanetRadiusConfig.SettingChanged += OnConfigSettingChanged;
         _energyCostModeConfig.SettingChanged += OnConfigSettingChanged;
         _energyCostMultiplierConfig.SettingChanged += OnConfigSettingChanged;
+        _mineFuelSlotFirstConfig.SettingChanged += OnConfigSettingChanged;
 
         Harmony.CreateAndPatchAll(typeof(MinerPatch), null);
     }
@@ -104,5 +121,6 @@ public class PlanetMiner : BaseUnityPlugin
         _energyPerItem = _energyCostModeConfig != null && _energyCostModeConfig.Value == EnergyCostMode.MiningMachine;
         float configuredMultiplier = _energyCostMultiplierConfig?.Value ?? DefaultEnergyCostMultiplier;
         _energyCostMultiplier = configuredMultiplier > 0f ? configuredMultiplier : DefaultEnergyCostMultiplier;
+        _mineFuelSlotFirst = _mineFuelSlotFirstConfig != null && _mineFuelSlotFirstConfig.Value;
     }
 }
