@@ -26,6 +26,7 @@ Dyson Sphere Program (戴森球计划) 的 BepInEx 插件，自动在星际运�
 | `MaxPlanetRadius` | `100` | 生效的最大行星半径（仅当 `EnablePlanetRadiusLimit=true` 时） |
 | `EnergyCostMode` | `Fixed` | 矿脉采矿的耗能方式：`Fixed` 或 `MiningMachine`，见下文 |
 | `EnergyCostMultiplier` | `1` | `MiningMachine` 模式下，每个矿物的耗能是原版采矿机的多少倍 |
+| `MineFuelSlotFirst` | `false` | 先采燃料格（倒数第二格），再采其他栏位。能量不足时每个栏位只采付得起的部分，不开的话微弱的供电会被前面的栏位用光，新建的物流站采不到第一份燃料、无法自己启动 |
 
 修改配置后无需重启游戏。
 
